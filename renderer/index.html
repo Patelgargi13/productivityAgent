@@ -1,0 +1,425 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>AI Productivity Agent</title>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap">
+<link rel="stylesheet" href="css/style.css">
+<style>
+/* ── Life Reminders Panel ─────────────────────────────────────── */
+.life-reminders-panel { margin-top: 28px; }
+.life-reminders-header { display:flex; align-items:center; justify-content:space-between; margin-bottom:14px; flex-wrap:wrap; gap:8px; }
+.life-reminders-header h2 { font-size:18px; font-weight:700; color:var(--text); display:flex; align-items:center; gap:8px; margin:0; }
+.lr-stats-row { display:flex; gap:10px; margin-bottom:14px; flex-wrap:wrap; }
+.lr-stat { background:var(--bg-card); border:1px solid var(--border); border-radius:10px; padding:10px 16px; text-align:center; min-width:72px; }
+.lr-stat-val { font-size:20px; font-weight:700; color:var(--accent); }
+.lr-stat-label { font-size:10px; color:var(--text-muted); text-transform:uppercase; letter-spacing:0.5px; margin-top:2px; }
+.lr-category-tabs { display:flex; gap:6px; flex-wrap:wrap; margin-bottom:14px; }
+.lr-cat-btn { padding:5px 14px; border-radius:20px; border:1px solid var(--border); background:var(--bg-hover); color:var(--text-muted); font-size:12px; font-weight:500; cursor:pointer; transition:all 0.15s; font-family:var(--font-main); }
+.lr-cat-btn.active, .lr-cat-btn:hover { background:var(--accent); color:#fff; border-color:var(--accent); }
+.lr-grid { display:grid; grid-template-columns:repeat(auto-fill, minmax(290px, 1fr)); gap:10px; }
+.lr-card { background:var(--bg-card); border:1px solid var(--border); border-radius:12px; padding:13px 14px; display:flex; align-items:center; gap:11px; transition:border-color 0.2s; position:relative; overflow:hidden; }
+.lr-card.enabled { border-color:rgba(108,99,255,0.4); }
+.lr-card.enabled::before { content:''; position:absolute; left:0; top:0; bottom:0; width:3px; background:var(--accent); border-radius:3px 0 0 3px; }
+.lr-emoji { font-size:24px; flex-shrink:0; width:40px; height:40px; display:flex; align-items:center; justify-content:center; background:var(--bg-hover); border-radius:10px; }
+.lr-info { flex:1; min-width:0; }
+.lr-label { font-size:13px; font-weight:600; color:var(--text); margin-bottom:2px; }
+.lr-schedule { font-size:11px; color:var(--accent-2); font-family:var(--font-mono); }
+.lr-body-text { font-size:11px; color:var(--text-dim); margin-top:3px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+.lr-actions { display:flex; flex-direction:column; align-items:flex-end; gap:5px; flex-shrink:0; }
+.lr-toggle { position:relative; width:38px; height:20px; cursor:pointer; flex-shrink:0; }
+.lr-toggle input { opacity:0; width:0; height:0; position:absolute; }
+.lr-toggle-slider { position:absolute; inset:0; background:var(--bg-hover); border:1px solid var(--border); border-radius:20px; transition:0.2s; }
+.lr-toggle-slider::after { content:''; position:absolute; width:14px; height:14px; left:2px; top:2px; background:var(--text-muted); border-radius:50%; transition:0.2s; }
+.lr-toggle input:checked + .lr-toggle-slider { background:var(--accent); border-color:var(--accent); }
+.lr-toggle input:checked + .lr-toggle-slider::after { transform:translateX(18px); background:#fff; }
+.lr-test-btn { font-size:10px; padding:3px 8px; border-radius:6px; border:1px solid var(--border); background:transparent; color:var(--text-muted); cursor:pointer; font-family:var(--font-main); transition:all 0.15s; white-space:nowrap; }
+.lr-test-btn:hover { border-color:var(--accent-2); color:var(--accent-2); }
+.lr-empty { text-align:center; color:var(--text-dim); padding:32px; font-size:13px; grid-column:1/-1; }
+</style>
+</head>
+<body>
+
+<aside class="sidebar">
+  <div class="sidebar-header">
+    <div class="logo"><span class="logo-icon">⚡</span><span class="logo-text">FlowAgent</span></div>
+  </div>
+  <nav class="sidebar-nav">
+    <button class="nav-btn active" data-tab="dashboard"><span class="nav-icon">▦</span> Dashboard</button>
+    <div class="nav-section-label">PRODUCTIVITY</div>
+    <button class="nav-btn" data-tab="screentime"><span class="nav-icon">◈</span> Screen Time</button>
+    <button class="nav-btn" data-tab="browser"><span class="nav-icon">🌐</span> Browser Activity</button>
+    <div class="nav-section-label">FOCUS</div>
+    <button class="nav-btn" data-tab="distraction"><span class="nav-icon">🎯</span> Focus Mode</button>
+    <div class="nav-section-label">TASKS & FILES</div>
+    <button class="nav-btn" data-tab="tasks"><span class="nav-icon">◻</span> Tasks <span class="badge" id="pending-badge">0</span></button>
+    <button class="nav-btn" data-tab="files"><span class="nav-icon">◫</span> File Organizer</button>
+    <button class="nav-btn" data-tab="clipboard"><span class="nav-icon">📋</span> Clipboard</button>
+    <div class="nav-section-label">AI TOOLS</div>
+    <button class="nav-btn" data-tab="mindmap"><span class="nav-icon">🧠</span> MindMap Coach</button>
+    <button class="nav-btn" data-tab="email"><span class="nav-icon">✉️</span> Email Manager</button>
+    <button class="nav-btn" data-tab="document"><span class="nav-icon">📄</span> Doc Explainer</button>
+  </nav>
+  <div class="sidebar-footer">
+    <button class="nav-btn" id="btn-open-settings" style="width:100%;margin-bottom:8px;opacity:0.7;font-size:12px;">⚙ Settings</button>
+    <div class="agent-status"><div class="status-dot active"></div><span id="agent-status-text">All agents running</span></div>
+  </div>
+</aside>
+
+<main class="main-content">
+
+<!-- ── DASHBOARD ──────────────────────────────────────────────────── -->
+<section class="tab-content active" id="tab-dashboard">
+  <div class="tab-header"><h1>Dashboard</h1><span id="dashboard-date" class="date-display"></span></div>
+  <div class="stats-grid" id="stats-grid">
+    <div class="stat-card" onclick="navigateTo('tasks')"><div class="stat-icon">✅</div><div class="stat-value" id="stat-tasks-done">0</div><div class="stat-label">Done Today</div></div>
+    <div class="stat-card" onclick="navigateTo('tasks')"><div class="stat-icon">📌</div><div class="stat-value" id="stat-tasks-pending">0</div><div class="stat-label">Pending Tasks</div></div>
+    <div class="stat-card" onclick="navigateTo('screentime')"><div class="stat-icon">🖥</div><div class="stat-value" id="stat-screen-time">0m</div><div class="stat-label">Screen Time</div></div>
+    <div class="stat-card" onclick="navigateTo('pattern')"><div class="stat-icon">🧠</div><div class="stat-value" id="stat-focus-score">—</div><div class="stat-label">Focus Score</div></div>
+    <div class="stat-card" onclick="navigateTo('files')"><div class="stat-icon">📁</div><div class="stat-value" id="stat-files">0</div><div class="stat-label">Files Organized</div></div>
+    <div class="stat-card" onclick="navigateTo('clipboard')"><div class="stat-icon">📋</div><div class="stat-value" id="stat-clipboard">0</div><div class="stat-label">Clipboard Items</div></div>
+    <div class="stat-card" onclick="navigateTo('email')"><div class="stat-icon">✉️</div><div class="stat-value" id="stat-emails">0</div><div class="stat-label">Emails Analyzed</div></div>
+    <div class="stat-card" onclick="navigateTo('document')"><div class="stat-icon">📄</div><div class="stat-value" id="stat-docs">0</div><div class="stat-label">Docs Explained</div></div>
+  </div>
+  <div class="insight-banner hidden" id="insight-banner">
+    <span class="insight-icon">🤖</span>
+    <div class="insight-text" id="insight-text">Analyzing your work patterns...</div>
+    <button onclick="document.getElementById('insight-banner').classList.add('hidden')" style="background:none;border:none;color:var(--text-muted);cursor:pointer;font-size:16px;">✕</button>
+  </div>
+  <div class="dashboard-grid">
+    <div class="dash-card"><div class="dash-card-header"><h3>Weekly Screen Time</h3></div><div class="chart-wrap"><canvas id="weeklyChart"></canvas></div></div>
+    <div class="dash-card"><div class="dash-card-header"><h3>Top Apps Today</h3></div><div id="top-apps-list" class="mini-list">Loading...</div></div>
+    <div class="dash-card"><div class="dash-card-header"><h3>Upcoming Tasks</h3><button class="btn btn-sm btn-ghost" onclick="navigateTo('tasks')">+ New</button></div><div id="upcoming-tasks-list" class="mini-list">Loading...</div></div>
+    <div class="dash-card" style="cursor:pointer" onclick="navigateTo('mindmap')"><div class="dash-card-header"><h3>🧠 MindMap Coach</h3><button class="btn btn-sm btn-ghost">Open →</button></div><div style="font-size:13px;color:var(--text-muted);padding:8px 0;line-height:1.7;">Your daily AI coaching report — personalized insights, auto-generated standup, burnout alerts & weekly digest.</div></div>
+  </div>
+</section>
+
+<!-- ── SCREEN TIME ─────────────────────────────────────────────────── -->
+<section class="tab-content" id="tab-screentime">
+  <div class="tab-header"><h1>Screen Time</h1><input type="date" id="date-picker" class="date-picker"></div>
+  <div class="screentime-layout">
+    <div class="chart-card full-width"><div class="chart-header"><h3>App Usage Today</h3><span class="chart-sub" id="total-screen-time">Total: 0m</span></div><div class="chart-wrap tall"><canvas id="appUsageChart"></canvas></div></div>
+    <div class="app-table-card full-width"><div class="chart-header"><h3>Detailed Breakdown</h3></div><div id="app-rows-container"></div></div>
+  </div>
+</section>
+
+<!-- ── BROWSER ACTIVITY ───────────────────────────────────────────── -->
+<section class="tab-content" id="tab-browser">
+  <div class="tab-header"><h1>Browser Activity</h1><input type="date" id="browser-date-picker" class="date-picker"></div>
+  <div class="two-col-layout">
+    <div class="chart-card"><div class="chart-header"><h3>By Category</h3><span class="chart-sub" id="browser-total">Total: 0m</span></div><div class="chart-wrap"><canvas id="browserCatChart"></canvas></div></div>
+    <div class="chart-card"><div class="chart-header"><h3>Sites Visited</h3></div><div id="browser-sites-list" class="file-log-list">Loading...</div></div>
+  </div>
+</section>
+
+<!-- ── FOCUS MODE ──────────────────────────────────────────────────── -->
+<section class="tab-content" id="tab-distraction">
+  <div class="tab-header"><h1>Focus Mode</h1></div>
+  <div class="focus-mode-card" id="focus-mode-card">
+    <div class="focus-mode-header">
+      <div><div class="focus-mode-title">🎯 Focus Mode</div><div class="focus-mode-sub">Block distractions and stay on track</div></div>
+      <div id="focus-mode-status" class="focus-badge off">OFF</div>
+    </div>
+    <div class="focus-duration-row">
+      <span style="font-size:13px;color:var(--text-muted);">Duration:</span>
+      <button class="preset-btn focus-preset active" data-min="25">25 min</button>
+      <button class="preset-btn focus-preset" data-min="45">45 min</button>
+      <button class="preset-btn focus-preset" data-min="60">1 hour</button>
+      <button class="preset-btn focus-preset" data-min="90">90 min</button>
+    </div>
+    <button class="btn btn-primary btn-block" id="btn-focus-toggle">🎯 Start Focus Mode</button>
+  </div>
+  <div class="two-col-layout" style="margin-top:16px;">
+    <div class="dash-card"><div class="dash-card-header"><h3>⚠ Distraction Alerts</h3></div><div id="distraction-log" class="file-log-list"><div class="empty-state">No alerts today — great focus! 🎉</div></div></div>
+    <div class="dash-card"><div class="dash-card-header"><h3>📊 Today's Split</h3></div><div class="chart-wrap"><canvas id="distractionChart"></canvas></div></div>
+  </div>
+</section>
+
+<!-- ── TASKS + LIFE REMINDERS ─────────────────────────────────────── -->
+<section class="tab-content" id="tab-tasks">
+  <div class="tab-header"><h1>Task Reminders</h1><button class="btn btn-primary" id="btn-add-task">+ New Task</button></div>
+
+  <!-- Task form -->
+  <div class="task-form-card hidden" id="task-form-card">
+    <h3 id="task-form-title">New Task</h3>
+    <div class="task-form">
+      <input type="text" id="task-title" class="form-input" placeholder="Task title *">
+      <textarea id="task-desc" class="form-input" placeholder="Description (optional)" rows="2"></textarea>
+      <div class="form-row">
+        <div style="flex:1;display:flex;flex-direction:column;gap:6px;">
+          <label style="font-size:12px;color:var(--text-muted);">⏰ Reminder Date & Time</label>
+          <input type="datetime-local" id="task-deadline" class="form-input">
+          <div style="display:flex;gap:6px;flex-wrap:wrap;">
+            <button type="button" class="preset-btn" onclick="setDeadlinePreset(30)">+30 min</button>
+            <button type="button" class="preset-btn" onclick="setDeadlinePreset(60)">+1 hour</button>
+            <button type="button" class="preset-btn" onclick="setDeadlinePreset(180)">+3 hours</button>
+            <button type="button" class="preset-btn" onclick="setDeadlinePreset(1440)">+1 day</button>
+            <button type="button" class="preset-btn" onclick="setDeadlineTomorrow9am()">Tomorrow 9am</button>
+          </div>
+        </div>
+        <select id="task-priority" class="form-input" style="align-self:flex-start;margin-top:22px;">
+          <option value="low">Low Priority</option>
+          <option value="medium" selected>Medium Priority</option>
+          <option value="high">High Priority</option>
+        </select>
+      </div>
+      <div class="form-actions">
+        <button class="btn btn-ghost" id="btn-cancel-task">Cancel</button>
+        <button class="btn btn-primary" id="btn-save-task">Save Task</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Task filters -->
+  <div class="task-filters">
+    <button class="filter-btn active" data-filter="all">All</button>
+    <button class="filter-btn" data-filter="pending">Pending</button>
+    <button class="filter-btn" data-filter="in-progress">In Progress</button>
+    <button class="filter-btn" data-filter="completed">Completed</button>
+  </div>
+
+  <!-- Task list -->
+  <div id="tasks-list" class="tasks-list">Loading...</div>
+
+  <!-- ══════════════════════════════════════════════════════════════ -->
+  <!-- LIFE REMINDERS PANEL                                          -->
+  <!-- ══════════════════════════════════════════════════════════════ -->
+  <div class="life-reminders-panel">
+
+    <div class="life-reminders-header">
+      <h2>💊 Life Reminders</h2>
+      <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
+        <span id="lr-enabled-count" style="font-size:12px;color:var(--text-muted);"></span>
+        <button class="btn btn-ghost btn-sm" id="btn-lr-enable-all">Enable All</button>
+        <button class="btn btn-ghost btn-sm" id="btn-lr-disable-all" style="color:var(--danger);">Disable All</button>
+      </div>
+    </div>
+
+    <!-- Stats -->
+    <div class="lr-stats-row">
+      <div class="lr-stat"><div class="lr-stat-val" id="lr-stat-total">—</div><div class="lr-stat-label">Total</div></div>
+      <div class="lr-stat"><div class="lr-stat-val" id="lr-stat-on">—</div><div class="lr-stat-label">Active</div></div>
+      <div class="lr-stat"><div class="lr-stat-val" id="lr-stat-interval">—</div><div class="lr-stat-label">Interval</div></div>
+      <div class="lr-stat"><div class="lr-stat-val" id="lr-stat-daily">—</div><div class="lr-stat-label">Daily</div></div>
+    </div>
+
+    <!-- Category filter -->
+    <div class="lr-category-tabs" id="lr-category-tabs">
+      <button class="lr-cat-btn active" data-lrcat="all">All</button>
+      <button class="lr-cat-btn" data-lrcat="hydration">💧 Hydration</button>
+      <button class="lr-cat-btn" data-lrcat="meals">🍽️ Meals</button>
+      <button class="lr-cat-btn" data-lrcat="body">🧘 Body</button>
+      <button class="lr-cat-btn" data-lrcat="mental">🧠 Mental</button>
+      <button class="lr-cat-btn" data-lrcat="work">📝 Work</button>
+    </div>
+
+    <!-- Reminder cards -->
+    <div class="lr-grid" id="lr-grid">
+      <div class="lr-empty">Loading reminders...</div>
+    </div>
+
+  </div>
+</section>
+
+<!-- ── FILE ORGANIZER ─────────────────────────────────────────────── -->
+<section class="tab-content" id="tab-files">
+  <div class="tab-header"><h1>File Organizer</h1><button class="btn btn-primary" id="btn-scan">⟳ Scan Downloads</button></div>
+  <div class="file-info-banner">
+    <span>📁 Monitoring: <strong id="downloads-path">~/Downloads</strong></span>
+    <span>→ Moving to: <strong id="organized-path">~/Organized/</strong></span>
+    <span id="total-files-count" style="margin-left:auto;color:var(--accent);font-weight:600;"></span>
+  </div>
+  <div class="category-grid" id="category-grid"></div>
+  <div class="files-panel hidden" id="files-panel">
+    <div class="files-panel-header">
+      <button class="btn btn-ghost btn-sm" id="btn-back-categories">← Back</button>
+      <h3 id="files-panel-title">Documents</h3>
+      <span id="files-panel-count" class="log-count"></span>
+    </div>
+    <div id="files-panel-list" class="file-log-list"></div>
+  </div>
+  <div id="recent-activity" class="file-log-card" style="margin-top:16px;">
+    <div class="file-log-header"><h3>Recent Activity</h3><span id="file-log-count" class="log-count">0 files</span></div>
+    <div id="file-log-list" class="file-log-list"><div class="empty-state">No files organized yet.</div></div>
+  </div>
+</section>
+
+<!-- ── CLIPBOARD ──────────────────────────────────────────────────── -->
+<section class="tab-content" id="tab-clipboard">
+  <div class="tab-header">
+    <h1>Clipboard History</h1>
+    <div style="display:flex;gap:8px;align-items:center;">
+      <select id="clipboard-filter" class="date-picker" style="width:140px;">
+        <option value="">All Categories</option>
+        <option value="URL">URLs</option>
+        <option value="Code">Code</option>
+        <option value="Email">Email</option>
+        <option value="Note">Notes</option>
+        <option value="Snippet">Snippets</option>
+      </select>
+      <button class="btn btn-ghost" id="btn-clear-clipboard" style="color:var(--danger)">Clear All</button>
+    </div>
+  </div>
+  <div id="clipboard-stats" class="clipboard-stats-row"></div>
+  <div id="clipboard-list" class="clipboard-list"><div class="empty-state">Copy something to start tracking!</div></div>
+</section>
+
+<!-- ── MINDMAP DAILY COACH ────────────────────────────────────────── -->
+<section class="tab-content" id="tab-mindmap">
+  <div class="tab-header">
+    <div>
+      <h1>🧠 MindMap — Daily Coach</h1>
+      <span id="mindmap-date-label" style="font-size:12px;color:var(--text-muted)">Your personalized daily intelligence report</span>
+    </div>
+    <div style="display:flex;gap:8px;align-items:center;">
+      <span id="mindmap-source-badge" class="gmail-badge disconnected" style="display:none"></span>
+      <button class="btn btn-ghost btn-sm" id="btn-mindmap-share">📤 Share Report</button>
+      <button class="btn btn-primary btn-sm" id="btn-mindmap-refresh">⟳ Refresh</button>
+    </div>
+  </div>
+  <div id="mindmap-loading" style="text-align:center;padding:60px 20px;">
+    <div style="font-size:48px;margin-bottom:16px;">🧠</div>
+    <div style="font-size:16px;font-weight:600;margin-bottom:8px;">Analyzing your workday...</div>
+    <div style="font-size:13px;color:var(--text-muted)">Building your personalized daily intelligence report</div>
+    <div class="loading-bar" style="margin:20px auto;max-width:300px;"></div>
+  </div>
+  <div id="mindmap-report" class="hidden">
+    <div class="mindmap-greeting-card" id="mindmap-greeting-card">
+      <div style="font-size:32px;margin-bottom:8px;" id="mindmap-greeting-emoji">👋</div>
+      <div id="mindmap-greeting-text" style="font-size:16px;font-weight:600;line-height:1.6;"></div>
+    </div>
+    <div id="mindmap-burnout-card" class="mindmap-burnout hidden">
+      <div style="font-size:24px;">⚠️</div>
+      <div id="mindmap-burnout-text" style="flex:1;"></div>
+    </div>
+    <div class="mindmap-stats-row">
+      <div class="mindmap-stat-card"><div class="mindmap-stat-value" id="mm-hours-today">—</div><div class="mindmap-stat-label">Hours Today</div></div>
+      <div class="mindmap-stat-card"><div class="mindmap-stat-value" id="mm-focus-score">—</div><div class="mindmap-stat-label">Focus Score</div></div>
+      <div class="mindmap-stat-card"><div class="mindmap-stat-value" id="mm-tasks-done">—</div><div class="mindmap-stat-label">Tasks Done</div></div>
+      <div class="mindmap-stat-card"><div class="mindmap-stat-value" id="mm-streak">—</div><div class="mindmap-stat-label">Day Streak</div></div>
+      <div class="mindmap-stat-card"><div class="mindmap-stat-value" id="mm-week-hours">—</div><div class="mindmap-stat-label">Week Hours</div></div>
+    </div>
+    <div class="mindmap-grid">
+      <div class="dash-card mindmap-card"><div class="mindmap-card-header"><span>📅</span> Today's Smart Plan</div><div id="mm-today-plan" class="mindmap-card-body"></div><div class="mindmap-quick-wins" id="mm-quick-wins"></div></div>
+      <div class="dash-card mindmap-card"><div class="mindmap-card-header"><span>💡</span> AI Coaching Insight</div><div id="mm-coaching-tip" class="mindmap-card-body"></div><div class="mindmap-card-header" style="margin-top:16px;"><span>🎯</span> Focus Analysis</div><div id="mm-focus-insight" class="mindmap-card-body"></div></div>
+      <div class="dash-card mindmap-card">
+        <div class="mindmap-card-header" style="justify-content:space-between;"><span><span>📋</span> Auto-Generated Standup</span><button class="btn btn-ghost btn-sm" id="btn-copy-standup">Copy</button></div>
+        <div class="standup-auto-section"><div class="standup-auto-label">✅ Yesterday</div><div id="mm-standup-yesterday" class="standup-auto-text"></div></div>
+        <div class="standup-auto-section"><div class="standup-auto-label">🎯 Today's Plan</div><div id="mm-standup-today" class="standup-auto-text"></div></div>
+        <div class="standup-auto-section"><div class="standup-auto-label">🚧 Blockers</div><div id="mm-standup-blockers" class="standup-auto-text"></div></div>
+        <div style="margin-top:14px;padding-top:14px;border-top:1px solid var(--border);">
+          <div style="font-size:12px;color:var(--text-muted);margin-bottom:8px;">How are you feeling today?</div>
+          <div class="mood-row" id="mm-mood-row">
+            <button class="mood-btn" data-mood="1" onclick="setMood(1)">😞</button>
+            <button class="mood-btn" data-mood="2" onclick="setMood(2)">😕</button>
+            <button class="mood-btn" data-mood="3" onclick="setMood(3)">😐</button>
+            <button class="mood-btn" data-mood="4" onclick="setMood(4)">🙂</button>
+            <button class="mood-btn" data-mood="5" onclick="setMood(5)">😄</button>
+          </div>
+          <input type="text" id="mm-blockers-input" class="form-input" style="margin-top:8px;font-size:12px;" placeholder="Any blockers? (optional — press Enter to save)">
+        </div>
+      </div>
+      <div class="dash-card mindmap-card"><div class="mindmap-card-header"><span>📊</span> Weekly Digest</div><div id="mm-weekly-digest" class="mindmap-card-body" style="margin-bottom:12px;"></div><div id="mm-week-chart" class="mm-week-chart"></div><div id="mm-achievement" class="mindmap-achievement"></div></div>
+    </div>
+  </div>
+</section>
+
+<!-- ── AI EMAIL MANAGER ───────────────────────────────────────────── -->
+<section class="tab-content" id="tab-email">
+  <div class="tab-header">
+    <h1>✉️ AI Email Manager</h1>
+    <div style="display:flex;gap:8px;align-items:center;">
+      <div id="gmail-status-badge" class="gmail-badge disconnected">⚪ Gmail: Not Connected</div>
+      <button class="btn btn-primary btn-sm" id="btn-gmail-fetch-inbox" style="display:none">⟳ Fetch Emails</button>
+      <button class="btn btn-ghost btn-sm" id="btn-gmail-disconnect" style="display:none;color:var(--danger)">Disconnect</button>
+    </div>
+  </div>
+  <div id="gmail-connect-card" class="gmail-connect-card">
+    <div class="gmail-connect-inner">
+      <div style="font-size:52px;margin-bottom:12px;">📬</div>
+      <h2 style="margin-bottom:8px;">Connect Your Gmail</h2>
+      <p style="color:var(--text-muted);font-size:13px;max-width:460px;line-height:1.7;margin:0 auto 24px;">Enter your Gmail address and a <strong style="color:var(--accent-2)">Google App Password</strong>.<br>Takes 1 minute — no complex setup required.</p>
+      <div class="apppass-form">
+        <div class="apppass-hint"><span style="font-size:18px;">1️⃣</span><div><div style="font-weight:600;font-size:13px;margin-bottom:2px;">Get your App Password</div><div style="font-size:12px;color:var(--text-muted);">Go to <span onclick="openLink('https://myaccount.google.com/apppasswords')" style="color:var(--accent);cursor:pointer;text-decoration:underline;">myaccount.google.com/apppasswords</span> → select app: <strong>Mail</strong> → select device: <strong>Windows Computer</strong> → click <strong>Generate</strong></div></div></div>
+        <div class="apppass-hint"><span style="font-size:18px;">2️⃣</span><div style="font-size:12px;color:var(--text-muted);">Copy the <strong style="color:var(--accent-2)">16-character password</strong> Google shows you</div></div>
+        <div class="apppass-hint"><span style="font-size:18px;">3️⃣</span><div style="flex:1;"><div style="font-weight:600;font-size:13px;margin-bottom:8px;">Enter your details below</div><input type="email" id="gmail-email-input" class="form-input" placeholder="your@gmail.com" style="margin-bottom:8px;"><input type="password" id="gmail-pass-input" class="form-input" placeholder="App password (16 characters)" style="font-family:var(--font-mono);letter-spacing:2px;margin-bottom:8px;"><button class="btn btn-primary" id="btn-gmail-connect" style="width:100%;">🔗 Connect Gmail</button><div id="gmail-connect-error" style="color:var(--danger);font-size:12px;margin-top:8px;min-height:16px;"></div></div></div>
+        <div style="font-size:11px;color:var(--text-dim);text-align:center;margin-top:8px;">🔒 Your password is stored only on your computer.</div>
+      </div>
+    </div>
+  </div>
+  <div id="gmail-inbox-card" class="hidden">
+    <div class="gmail-inbox-header"><div><h3>📬 Unread Emails</h3><span id="gmail-inbox-subtitle" style="font-size:12px;color:var(--text-muted)">Click an email to see AI analysis</span></div><select id="gmail-fetch-count" class="date-picker" style="width:120px;"><option value="10">10 emails</option><option value="15" selected>15 emails</option><option value="25">25 emails</option></select></div>
+    <div id="gmail-loading" class="loading-bar hidden"></div>
+    <div id="gmail-email-list" class="gmail-list"></div>
+  </div>
+  <div id="email-detail-panel" class="hidden" style="margin-top:16px;">
+    <div class="dash-card"><div class="dash-card-header"><button class="btn btn-ghost btn-sm" onclick="closeEmailDetail()">← Back</button><h3 id="detail-subject" style="flex:1;margin-left:12px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;"></h3></div><div id="email-detail-body" style="padding:4px 0;"></div></div>
+  </div>
+  <div class="dash-card" style="margin-top:16px;">
+    <div class="dash-card-header"><h3>📝 Paste Any Email Manually</h3><button class="btn btn-ghost btn-sm" id="btn-toggle-paste">Show / Hide</button></div>
+    <div id="manual-paste-body" class="hidden" style="padding-top:12px;">
+      <textarea id="email-input" class="form-input" rows="7" placeholder="Paste the full email text here..."></textarea>
+      <div style="display:flex;gap:8px;margin-top:10px;align-items:center;"><button class="btn btn-primary" id="btn-analyze-email">🤖 Analyze Email</button><span id="email-loading-text" style="font-size:12px;color:var(--text-muted);display:none">Analyzing...</span></div>
+      <div id="email-loading" class="loading-bar hidden"></div>
+      <div id="email-result-body" class="hidden" style="margin-top:16px;"></div>
+    </div>
+  </div>
+  <div class="dash-card" style="margin-top:16px;">
+    <div class="dash-card-header"><h3>📬 Email History</h3><span id="email-history-count" style="font-size:12px;color:var(--text-muted)"></span></div>
+    <div id="email-history-list" class="file-log-list"><div class="empty-state">No emails analyzed yet</div></div>
+  </div>
+</section>
+
+<!-- ── AI DOCUMENT EXPLAINER ──────────────────────────────────────── -->
+<section class="tab-content" id="tab-document">
+  <div class="tab-header"><h1>📄 AI Document Explainer</h1><span style="font-size:12px;color:var(--text-muted)">Upload a file or paste text → instant summary + suggestions</span></div>
+  <div class="doc-layout">
+    <div class="doc-input-card">
+      <h3 style="margin-bottom:14px;color:var(--accent-2)">Upload or Paste Document</h3>
+      <div class="file-drop-zone" id="doc-drop-zone"><div style="font-size:32px">📂</div><div style="font-weight:600;margin:8px 0 4px">Drop file here</div><div style="font-size:12px;color:var(--text-muted)">Supports .txt, .pdf, .docx, .md</div><input type="file" id="doc-file-input" accept=".txt,.pdf,.docx,.md" style="display:none"><button class="btn btn-ghost btn-sm" style="margin-top:10px" onclick="document.getElementById('doc-file-input').click()">Browse File</button></div>
+      <div style="text-align:center;color:var(--text-muted);margin:10px 0;font-size:12px;">— OR —</div>
+      <textarea id="doc-text-input" class="form-input" rows="8" placeholder="Paste document text directly here..."></textarea>
+      <input type="text" id="doc-context-input" class="form-input" style="margin-top:8px" placeholder="Optional: What is this document about?">
+      <button class="btn btn-primary" id="btn-analyze-doc" style="width:100%;margin-top:10px;">🤖 Analyze Document</button>
+      <div id="doc-loading" class="loading-bar hidden"></div>
+    </div>
+    <div class="doc-result-card" id="doc-result-card">
+      <div id="doc-result-empty" class="empty-state" style="height:100%;display:flex;align-items:center;justify-content:center;flex-direction:column;gap:10px;"><div style="font-size:48px">📄</div><div>Upload or paste a document to analyze</div></div>
+      <div id="doc-result-body" class="hidden"></div>
+    </div>
+  </div>
+  <div class="dash-card" style="margin-top:16px;">
+    <div class="dash-card-header"><h3>📚 Recent Documents</h3><span id="doc-history-count" style="font-size:12px;color:var(--text-muted)"></span></div>
+    <div id="doc-history-list" class="file-log-list"><div class="empty-state">No documents analyzed yet</div></div>
+  </div>
+</section>
+
+<!-- ── MODALS ─────────────────────────────────────────────────────── -->
+<div class="modal hidden" id="plan-modal">
+  <div class="modal-backdrop" id="plan-backdrop"></div>
+  <div class="modal-content" style="max-width:540px;"><div class="modal-header"><h3 id="plan-modal-title">📋 Task Plan</h3><button class="modal-close" id="btn-close-plan">✕</button></div><div id="plan-modal-body" style="padding:20px;"></div></div>
+</div>
+<div class="modal hidden" id="settings-modal">
+  <div class="modal-backdrop" id="settings-backdrop"></div>
+  <div class="modal-content" style="max-width:520px;"><div class="modal-header"><h3>⚙ Settings</h3><button class="modal-close" id="btn-close-settings">✕</button></div><div style="padding:20px;display:flex;flex-direction:column;gap:20px;"><div><h4 style="color:var(--accent-2);margin-bottom:8px;font-size:14px;">🤖 API Key</h4><p style="font-size:12px;color:var(--text-muted);margin-bottom:12px;line-height:1.6;">Enables AI-powered features (Gemini / Groq / Anthropic)</p><div style="display:flex;gap:8px;"><input type="password" id="api-key-input" placeholder="Enter API key..." style="flex:1;background:var(--bg-hover);border:1px solid var(--border-bright);color:var(--text);border-radius:8px;padding:10px 14px;font-family:var(--font-mono);font-size:13px;"><button id="btn-save-api-key" class="btn btn-primary">Save</button></div><div id="api-key-status" style="font-size:12px;margin-top:8px;min-height:16px;"></div></div></div></div>
+</div>
+
+<!-- ── POPUPS ─────────────────────────────────────────────────────── -->
+<div class="task-popup hidden" id="task-due-popup">
+  <div class="task-popup-icon">⏰</div>
+  <div class="task-popup-body"><div class="task-popup-title" id="task-popup-title">Task Due!</div><div class="task-popup-sub" id="task-popup-sub"></div></div>
+  <div class="task-popup-actions"><button class="btn btn-sm btn-primary" onclick="dismissTaskPopup(true)">Done ✓</button><button class="btn btn-sm btn-ghost" onclick="dismissTaskPopup(false)">Dismiss</button></div>
+</div>
+<div class="distraction-popup hidden" id="distraction-popup">
+  <div id="distraction-popup-icon">⚠</div>
+  <div class="task-popup-body"><div class="task-popup-title" id="distraction-popup-title"></div><div class="task-popup-sub" id="distraction-popup-sub"></div></div>
+  <div class="task-popup-actions"><button class="btn btn-sm btn-primary" onclick="document.getElementById('distraction-popup').classList.add('hidden');navigateTo('tasks')">Go to Tasks</button><button class="btn btn-sm btn-ghost" onclick="document.getElementById('distraction-popup').classList.add('hidden')">Dismiss</button></div>
+</div>
+
+<div id="toast-container"></div>
+<script src="js/app.js"></script>
+</body>
+</html>

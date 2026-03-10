@@ -1,0 +1,22 @@
+{
+  "name": "ai-productivity-agent",
+  "version": "1.0.0",
+  "description": "AI-powered desktop productivity agent — 4 intelligent agents",
+  "main": "src/main.js",
+  "scripts": {
+    "start": "electron .",
+    "setup": "node setup.js"
+  },
+  "dependencies": {
+    "chokidar": "^3.6.0",
+    "dotenv": "^17.3.1",
+    "imap": "^0.8.17",
+    "mailparser": "^3.9.4",
+    "node-cron": "^3.0.3"
+  },
+  "devDependencies": {
+    "electron": "^40.8.0"
+  },
+  "author": "AI Productivity Agent",
+  "license": "MIT"
+}
